@@ -1,0 +1,90 @@
+---
+title: "PCA"
+author: "Natalie Smith"
+format: 
+  html:
+    code-fold: true
+    toc: true
+    number-sections: true
+    embed-resources: true
+theme: Litera
+editor: visual
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r}
+library(tidyverse)
+library(here)
+library(ggfortify)
+library(sf)
+```
+
+```{r}
+enviroscreen <- read_sf(here("data", "enviroscreen_final.gpkg"))
+
+#pick data variables
+clean_screen <- enviroscreen %>% 
+  st_drop_geometry() %>% 
+  select(pm2_5,diesel_pm,lead,drink_wat,asthma,educatn, poverty,unempl,ling_isol,traffic,zip_pct_64, existing_canopy_pct) %>% 
+  drop_na()
+```
+
+```{r}
+#look at variable distribution
+screen_long <- clean_screen %>%
+  pivot_longer(names_to = 'name', values_to = 'value', where(is.numeric))
+
+ggplot(screen_long , aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~ name, scales = 'free_x')
+```
+
+```{r}
+#scale
+pca_screen<- clean_screen %>% 
+  prcomp(scale = TRUE)
+
+pca_screen$rotation
+```
+```{r}
+autoplot(pca_screen,
+     	data = clean_screen ,
+     	loadings = TRUE,
+     	loadings.label = TRUE,
+     	loadings.colour = "black",
+     	loadings.label.colour = "black",
+     	loadings.label.vjust = -0.5)+
+  theme_minimal()
+```
+
+```{r}
+#create loadings 
+loadings_df <- data.frame(pca_screen$rotation * 8) %>% ### 8x arrows
+  mutate(axis = row.names(.))
+
+new_pts_df <- data.frame(pca_screen$x)
+#how do we get these new point?
+
+ggplot() +
+  geom_point(data = new_pts_df, aes(x = PC1, y = PC2), 
+             color = 'skyblue', 
+             alpha= 0.6) +
+  geom_segment(data = loadings_df,
+               x = 0, y = 0, aes(xend = PC1, yend = PC2, group = axis),
+               arrow = arrow(length = unit(.25, 'cm'))) +
+  geom_text(data = loadings_df,
+            aes(x = PC1, y = PC2, label = axis), vjust = 0, nudge_y = .01) +
+  theme_minimal()
+```
+```{r}
+screeplot(pca_screen, type = "lines")
+screeplot(pca_screen, type = "barplot")
+```
+QUESTIONS: 
+# Log or not to log?
+# how do we interpret all of this
+# should we be concerned that PC is 38%?
+# add redilining variables?
