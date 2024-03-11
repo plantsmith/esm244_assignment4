@@ -1,0 +1,91 @@
+---
+title: "Cluster Analysis"
+author: "Natalie Smith"
+format: 
+  html:
+    code-fold: true
+    toc: true
+    number-sections: true
+    embed-resources: true
+theme: Litera
+editor: visual
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+Overview DATA & METADATA SOURCE: SBC LTER: Stream chemistry in the Santa Barbara Coastal drainage area, ongoing since 2000 Creators: Santa Barbara Coastal LTER, & Melack, John M Citation: Santa Barbara Coastal LTER and J. Melack. 2019. SBC LTER: Land: Stream chemistry in the Santa Barbara Coastal drainage area, ongoing since 2000 ver 16. Environmental Data Initiative. https://doi.org/10.6073/pasta/67a558a24ceed9a0a5bf5e46ab841174.
+
+```{r}
+library(here)
+library(tidyverse)
+library(NbClust)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(ggdendro)
+
+```
+
+
+```{r}
+
+#  Load the data and convert -999 values to NA
+stream_df<- read.csv(here("data", "sbc_lter_registered_stream_chemistry.csv"), na = c('-999'))
+
+# Drop columns with >50% NA values
+na_50 <- nrow(stream_df) * 0.5  # 50% threshold
+stream_df_clean <- stream_df %>%
+  select(-where(~sum(is.na(.)) > na_50))  # Drop columns with >50% NA values
+
+# Summary with means per site
+summary_stream <- stream_df_clean %>%
+  group_by(site_code) %>%
+  summarise(across(everything(), mean, na.rm = TRUE)) %>% 
+  select(-"timestamp_local")
+
+#Scale numeric
+summary_stream_scaled <- summary_stream %>% 
+  select(2:7) %>% 
+  scale()
+# 
+# summary(summary_stream_scaled)
+
+# Hierarchical clustering
+distance_stream <- dist(summary_stream, method = 'euclidean')
+hclust_stream <- hclust(distance_stream, method = "complete")
+
+# Dendrogram
+plot(hclust_stream, cex = 0.6, hang = -1)
+
+```
+
+
+```{r}
+library(ggplot2)
+library(ggdendro)
+
+ggdendrogram(hclust_stream, rotate = FALSE) +
+  theme_minimal() +
+  labs(x = "", y = " ") +
+        theme(panel.grid.major = element_blank(), # Hide gridlines
+        panel.grid.minor = element_blank(), # Hide axis grid
+        legend.position = "none") # Hide legend if any
+
+
+```
+
+Based on the provided code snippets and context, it appears that you performed summarization with `na.rm = TRUE` after excluding columns with a high percentage of missing values. Let's break down the process:
+
+1. **Excluding columns with >50% NA values**: You calculated a threshold (`na_50`) to identify columns with more than 50% missing values. Then, you used `select()` with `where()` to drop those columns from the dataset. This is a step to reduce noise and computational burden by excluding variables with a significant amount of missing data, which might not provide meaningful information for clustering.
+
+2. **Summarizing with `na.rm = TRUE`**: After excluding low-information variables, you calculated summary statistics (mean) for each remaining variable per site (`site_code`). You used `summarise(across(everything(), mean, na.rm = TRUE))` to compute the mean for each variable across all observations at each site. This approach ensures that missing values are handled by removing them before calculating the means (`na.rm = TRUE`).
+
+**Decision**: The approach you took, which involves summarizing with `na.rm = TRUE` after excluding low-information variables, is a valid strategy for handling missing values and preparing the dataset for clustering. 
+
+This approach was likely chosen because:
+- It retains as much information as possible by summarizing the remaining variables after excluding those with a high percentage of missing values.
+- It ensures that the clustering analysis is conducted on a dataset with reduced noise and missing values handled appropriately.
+- Summarizing with `na.rm = TRUE` allows for the inclusion of all available data while calculating summary statistics, which can provide a more comprehensive view of the dataset's characteristics.
+
