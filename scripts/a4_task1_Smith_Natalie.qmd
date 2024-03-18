@@ -40,11 +40,14 @@ When bringing in the data, we'll first remove the spatial aspect and then select
 ```{r}
 enviroscreen <- read_sf(here("data", "enviroscreen_final.gpkg"))
 
-#pick data variables
+#pick data variables, drop spatial aspect, mutate to log
 clean_screen <- enviroscreen %>% 
+    # mutate(diesel_pm = log(diesel_pm),
+    #      existing_canopy_pct = log(existing_canopy_pct)) %>% 
   st_drop_geometry() %>% 
-  select(pm2_5,diesel_pm,lead,drink_wat,asthma,educatn, poverty,unempl,ling_isol,traffic,zip_pct_64, existing_canopy_pct, class1) %>% 
+  select(pm2_5,diesel_pm,lead,drink_wat,asthma,educatn, poverty,unempl,ling_isol,traffic, zip_pct_64, existing_canopy_pct, class1) %>% 
   drop_na()
+
 ```
 
 ```{r}
@@ -55,11 +58,12 @@ clean_screen <- clean_screen %>%
          drinking_water = drink_wat, 
          heat_risk = zip_pct_64)
 
+
 ```
 
 # Exploratory Plots:
 
-In order to explore the data effectively, pivot so all the names of our variables are in one column. This will enable us to visualize the distribution of the variables and determine whether we need to apply any log transformations.
+In order to explore the data effectively, pivot so all the names of our variables are in one column. This will enable us to visualize the distribution of the variables and determine whether we need to apply any logarithmic transformations.
 
 ```{r}
 #| label: fig-exploratory
@@ -71,12 +75,18 @@ screen_long <- clean_screen %>%
 
 #plot
 ggplot(screen_long , aes(x = value)) +
-  geom_histogram() +
+  geom_histogram(fill= "dodgerblue") +
   facet_wrap(~ name, scales = 'free_x')+
   theme_minimal()
 ```
 
-I decided not to use the log - WHY
+When looking at the exploratory plots, we observe a significant skew in diesel_pm and existing_canopy_coverage. We will utilize the mutate function to log transform them.
+
+```{r}
+clean_screen_log <- clean_screen %>%
+    mutate(diesel_pm = log(diesel_pm),
+         existing_canopy_pct = log(existing_canopy_pct))
+```
 
 # Scaling:
 
@@ -84,7 +94,7 @@ Next, we need to scale the data to ensure that each variable contributes equally
 
 ```{r}
 #scale
-pca_screen<- clean_screen %>% 
+pca_screen<- clean_screen_log %>% 
   select(where(is.numeric)) %>%
   prcomp(scale = TRUE)
 
@@ -93,7 +103,7 @@ pca_screen<- clean_screen %>%
 
 # PCA plot:
 
-To define the point as the redlining grades, we need to define the colors as a vector. Then we can utilize autoplot to crete a visualizion showing princiapl conponents over redlinine zones. For a full description of the variables in the PCA analysis, refer to footnotes. [^1]
+To define the point as the redlining grades, we need to define the colors as a vector. Then we can utilize autoplot to create a visualization showing principal components over redlining zones. For a full description of the variables in the PCA analysis, refer to footnotes. [^1]
 
 [^1]: Full list of Principal Components Analysis (PCA) variables:
 
@@ -102,7 +112,7 @@ To define the point as the redlining grades, we need to define the colors as a v
     -   Drinking Water: Drinking water contaminant index for selected contaminants
     -   Education: Percent of population over 25 with less than a high school education
     -   Existing Canopy Coverage (existing_canopy_pct): Percent of existing canopy coverage
-    -   Heat Risk:
+    -   Heat Risk: Daily excess number of emergency visits during an extreme heat day
     -   Lead: Potential risk for lead exposure in children living in low-income communities with older housing
     -   Linguistic Isolation (ling_isol): Percent limited English speaking households
     -   PM 2.5 (pm2_5): Annual mean PM2.5 concentrations
@@ -119,7 +129,7 @@ class1_colors <- c("A" = "limegreen", "B" = "deepskyblue2", "C" = "orange", "D" 
 
 #autoplot
 autoplot(pca_screen,
-         data = clean_screen,
+         data = clean_screen_log,
          color = "class1",
          loadings = TRUE,
          loadings.label = TRUE,
@@ -178,9 +188,9 @@ pct_expl_df$pc <- factor(pct_expl_df$pc, levels = pc_names)
 
 # Column plot
 ggplot(pct_expl_df, aes(x = pc, y = v)) +
-  geom_col(fill="grey") +
+  geom_col(fill="dodgerblue") +
   geom_text(aes(label = pct_lbl), vjust = -0.5, nudge_y = 0.002) + 
-  labs(x = 'Principal component', y = 'Variance explained') +
+  labs(x = 'Principal Component', y = 'Variance Explained') +
   theme_minimal()
 
 # # If you want to do a line plot, instead of a column:
@@ -203,12 +213,22 @@ ggplot(pct_expl_df, aes(x = pc, y = v)) +
 
 # Summary:
 
-Our expectations regarding the correlations between variables were reinforced by the results of the PCA. Specifically, we found that canopy coverage percentage is negatively correlated with poverty and education. Additionally, the strong correlations observed between education, poverty, and unemployment further enforce our initial expectations.
+The level of tree canopy cover within a census tract typically shows a negative correlation with poverty levels, pollution measurements, and health conditions. Areas in the 'A' grade, generally had higher canopy cover percentage. This suggests that wealthier communities with greater economic stability and reduced health risks, tend to have higher levels of canopy coverage.
 
-Contrary to our assumptions, despite traffic and diesel showing correlation with each other, they do not show correlation with asthma. Similarly, PM 2.5, a pollutant commonly associated with respiratory issues, only demonstrates a slight correlation with asthma. This unexpected finding suggests the need for deeper exploration into the factors influencing asthma prevalence in the Los Angeles area.
+Poverty, low educational achievement, and unemployment are positively correlated. This may indicate the cyclical impact of poverty; as individuals in poverty find it more challenging to access education and secure well-paying employment, thus perpetuating the cycle.
+
+Contrary to our assumptions, despite traffic and diesel showing correlation with each other, they do not show correlation with asthma. Similarly, PM 2.5, a pollutant commonly associated with respiratory issues, only demonstrates a slight correlation with asthma. This unexpected finding suggests the need for deeper exploration into the factors influencing asthma in the Los Angeles area.
 
 Additionally, the data points associated with redlining grade, show us that Type A & B neighborhoods are more associated with canopy coverage and Type C & D neighborhoods are more associated with poverty, unemployment, heat risk, and asthma.
 
 When looking at the screeplot, we see a drastic fall from PC1 to PC2, indicating that adding additional components may not contribute significantly to explaining variance in the dataset.
 
-[@CanopyCoverage2019; @CensusData2019; @HeatData2019; @ModernRedlining]
+# References:
+
+Environmental Health Hazard Assessment, California Office of. 2024. “CalEnviroScreen 4.0.” <https://oehha.ca.gov/calenviroscreen/maps-data/download-data>.
+
+Healthy Climate Solutions & UCLA Center for Public Health, UCLA Center for, and Disasters. 2024. “UCLA Heat Maps.”[ https://sites.google.com/g.ucla.edu/uclaheatmaps/map](https://sites.google.com/g.ucla.edu/uclaheatmaps/map).
+
+University, Loyola Marymount. 2016. “Tree Canopy Coverage.” <https://la.myneighborhooddata.org/2021/10/tree-canopy-cover/>.
+
+University of Richmond, Digital Scholarship Lab at the. 2023. “Home Owner Loan Corporation (HOLC) Neighborhood Grades for US Census.” Diversity Data Kids. <https://data.diversitydatakids.org/dataset/holc_census_tracts-home-owner-loan-corporation--holc--neighborhood-grades-for-us-census-tracts?_external=True>.

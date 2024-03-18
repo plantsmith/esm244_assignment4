@@ -150,6 +150,6 @@ tanglegram(
 
 -   The tanglegram illustrates the relationship between the two dendrograms. The solid lines represent the clusters that are consistent between the two dendrograms, while the dotted lines represent the clusters that are not consistent. Additionally, The grey lines indicate "tangled" and inconsistent clusters between the two dendrograms.
 
-------------------------------------------------------------------------
+# References:
 
-[@lter2019]
+LTER, Santa Barbara Coastal, and John M Melack. 2019. “SBC LTER: Land: Stream Chemistry in the Santa Barbara Coastal Drainage Area, Ongoing Since 2000.” Environmental Data Initiative. https://doi.org/10.6073/PASTA/67A558A24CEED9A0A5BF5E46AB841174.
